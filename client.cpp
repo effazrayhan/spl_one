@@ -1,47 +1,41 @@
 #include <iostream>
 #include <cstring>
+#include <thread>
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#define SERVER_IP "127.0.0.1"
-#define PORT 8080
-using namespace std;
-int main() {
-    int sock;
-    struct sockaddr_in serverAddr;
+void receiveMessages(int socket) {
     char buffer[1024];
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        perror("Socket creation failed");
-        return -1;
+    while (true) {
+        int bytesReceived = recv(socket, buffer, 1024, 0);
+        if (bytesReceived <= 0) break;
+        std::cout << "Server: " << std::string(buffer, bytesReceived) << std::endl;
     }
+}
+
+int main() {
+    int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in serverAddr{};
 
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(PORT);
-    serverAddr.sin_addr.s_addr = inet_addr(SERVER_IP);
+    serverAddr.sin_port = htons(8080); // Same port as server
+    inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr); // Server IP (Localhost for LAN)
 
-    if (connect(sock, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
-        perror("Connection failed");
+    if (connect(clientSocket, (sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
+        std::cerr << "Connection failed.\n";
         return -1;
     }
 
-    cout << "Connected to the server" << endl;
+    std::thread(receiveMessages, clientSocket).detach();
 
+    char buffer[1024];
     while (true) {
-        cout << "Enter message: ";
-        cin.getline(buffer, sizeof(buffer));
+        std::cin.getline(buffer, 1024);
+        if (std::string(buffer) == "exit") break;
 
-        send(sock, buffer, strlen(buffer), 0);
-
-        int len = recv(sock, buffer, sizeof(buffer), 0);
-        if (len > 0) {
-            buffer[len] = '\0';
-            cout << "Server: " << buffer << endl;
-        } else {
-            cout << "Server disconnected." << endl;
-            break;
-        }
+        send(clientSocket, buffer, strlen(buffer), 0);
     }
-    close(sock);
+
+    close(clientSocket);
     return 0;
 }
