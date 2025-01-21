@@ -1,13 +1,16 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <thread>
+#include <mutex>
+#include <cstring>
+#include <cstdlib>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <errno.h>
-#include <string.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <thread>
-#include <mutex>
+
 #define MAX_LEN 200
 #define NUM_COLORS 6
 
@@ -96,7 +99,7 @@ string color(int code)
 	return colors[code%NUM_COLORS];
 }
 
-//Set name
+// Set name of client
 void set_name(int id, char name[])
 {
 	for(int i=0; i<clients.size(); i++)
@@ -107,6 +110,8 @@ void set_name(int id, char name[])
 			}
 	}	
 }
+
+// For synchronisation of cout statements
 void shared_print(string str, bool endLine=true)
 {	
 	lock_guard<mutex> guard(cout_mtx);
@@ -115,7 +120,7 @@ void shared_print(string str, bool endLine=true)
 			cout<<endl;
 }
 
-//Broadcast message to all
+// Broadcast message to all clients except the sender
 int broadcast_message(string message, int sender_id)
 {
 	char temp[MAX_LEN];
@@ -129,7 +134,7 @@ int broadcast_message(string message, int sender_id)
 	}		
 }
 
-//Broadcast a number to all 
+// Broadcast a number to all clients except the sender
 int broadcast_message(int num, int sender_id)
 {
 	for(int i=0; i<clients.size(); i++)
@@ -162,7 +167,7 @@ void handle_client(int client_socket, int id)
 	recv(client_socket,name,sizeof(name),0);
 	set_name(id,name);	
 
-	//welcome message
+	// Display welcome message
 	string welcome_message=string(name)+string(" has joined");
 	broadcast_message("#NULL",id);	
 	broadcast_message(id,id);								
@@ -176,7 +181,7 @@ void handle_client(int client_socket, int id)
 			return;
 		if(strcmp(str,"#exit")==0)
 		{
-			//leaving message
+			// Display leaving message
 			string message=string(name)+string(" has left");		
 			broadcast_message("#NULL",id);			
 			broadcast_message(id,id);						
