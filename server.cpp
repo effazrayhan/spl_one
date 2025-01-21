@@ -1,104 +1,193 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <map>
-#include <thread>
-#include <vector>
-#include <mutex>
+#include <bits/stdc++.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <netinet/in.h>
+#include <errno.h>
+#include <string.h>
+#include <arpa/inet.h>
 #include <unistd.h>
+#include <thread>
+#include <mutex>
+#define MAX_LEN 200
+#define NUM_COLORS 6
 
-map<string, pair<string, string>> chatrooms; // RoomID -> (Password, LogFile)
-mutex fileMutex;
 using namespace std;
 
-string xorEncryptDecrypt(const string &data, char key = 'K') {
-    string result = data;
-    for (char &c : result) {
-        c ^= key;
-    }
-    return result;
+struct terminal
+{
+	int id;
+	string name;
+	int socket;
+	thread th;
+};
+
+vector<terminal> clients;
+string def_col="\033[0m";
+string colors[]={"\033[31m", "\033[32m", "\033[33m", "\033[34m", "\033[35m","\033[36m"};
+int seed=0;
+mutex cout_mtx,clients_mtx;
+
+string color(int code);
+void set_name(int id, char name[]);
+void shared_print(string str, bool endLine);
+int broadcast_message(string message, int sender_id);
+int broadcast_message(int num, int sender_id);
+void end_connection(int id);
+void handle_client(int client_socket, int id);
+
+int main()
+{
+	int server_socket;
+	if((server_socket=socket(AF_INET,SOCK_STREAM,0))==-1)
+	{
+		perror("socket: ");
+		exit(-1);
+	}
+
+	struct sockaddr_in server;
+	server.sin_family=AF_INET;
+	server.sin_port=htons(10000);
+	server.sin_addr.s_addr=INADDR_ANY;
+	bzero(&server.sin_zero,0);
+
+	if((bind(server_socket,(struct sockaddr *)&server,sizeof(struct sockaddr_in)))==-1)
+	{
+		perror("bind error: ");
+		exit(-1);
+	}
+
+	if((listen(server_socket,8))==-1)
+	{
+		perror("listen error: ");
+		exit(-1);
+	}
+
+	struct sockaddr_in client;
+	int client_socket;
+	unsigned int len=sizeof(sockaddr_in);
+
+	cout<<colors[NUM_COLORS-1]<<"\n\t  ====== Welcome to the chat-room ======   "<<endl<<def_col;
+
+	while(1)
+	{
+		if((client_socket=accept(server_socket,(struct sockaddr *)&client,&len))==-1)
+		{
+			perror("accept error: ");
+			exit(-1);
+		}
+		seed++;
+		thread t(handle_client,client_socket,seed);
+		lock_guard<mutex> guard(clients_mtx);
+		clients.push_back({seed, string("Anonymous"),client_socket,(move(t))});
+	}
+
+	for(int i=0; i<clients.size(); i++)
+	{
+		if(clients[i].th.joinable())
+			clients[i].th.join();
+	}
+
+	close(server_socket);
+	return 0;
 }
 
-void handleClient(int clientSocket) {
-    char buffer[1024];
-    string roomId, password;
-    send(clientSocket, "Enter Room ID: ", 15, 0);
-    recv(clientSocket, buffer, 1024, 0);
-    roomId = buffer;
-
-    send(clientSocket, "Enter Room Password: ", 21, 0);
-    recv(clientSocket, buffer, 1024, 0);
-    password = buffer;
-
-    if (chatrooms.find(roomId) == chatrooms.end() || chatrooms[roomId].first != password) {
-        send(clientSocket, "Invalid Room ID or Password\n", 30, 0);
-        close(clientSocket);
-        return;
-    }
-
-    send(clientSocket, "Connected to the chatroom!\n", 27, 0);
-    string logFile = chatrooms[roomId].second;
-
-    while (true) {
-        int bytesReceived = recv(clientSocket, buffer, 1024, 0);
-        if (bytesReceived <= 0) break;
-
-        string message(buffer, bytesReceived);
-        {
-            lock_guard<mutex> lock(fileMutex);
-            ofstream outFile(logFile, ios::app);
-            outFile << xorEncryptDecrypt(message) << "\n";
-        }
-
-        send(clientSocket, message.c_str(), message.size(), 0);
-    }
-
-    close(clientSocket);
+string color(int code)
+{
+	return colors[code%NUM_COLORS];
 }
 
-void createChatroom() {
-    string roomId, password, logFile;
-    cout << "Enter Room ID: ";
-    cin >> roomId;
-    cout << "Enter Room Password: ";
-    cin >> password;
-
-    logFile = roomId + "_log.txt";
-    chatrooms[roomId] = {password, logFile};
-
-    ofstream outFile(logFile, ios::trunc);
-    outFile << xorEncryptDecrypt("Chatroom created\n");
-    outFile.close();
-
-    cout << "Chatroom " << roomId << " created successfully.\n";
+//Set name
+void set_name(int id, char name[])
+{
+	for(int i=0; i<clients.size(); i++)
+	{
+			if(clients[i].id==id)	
+			{
+				clients[i].name=string(name);
+			}
+	}	
+}
+void shared_print(string str, bool endLine=true)
+{	
+	lock_guard<mutex> guard(cout_mtx);
+	cout<<str;
+	if(endLine)
+			cout<<endl;
 }
 
-int main() {
-    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    sockaddr_in serverAddr{}, clientAddr{};
-    socklen_t addrLen = sizeof(clientAddr);
+//Broadcast message to all
+int broadcast_message(string message, int sender_id)
+{
+	char temp[MAX_LEN];
+	strcpy(temp,message.c_str());
+	for(int i=0; i<clients.size(); i++)
+	{
+		if(clients[i].id!=sender_id)
+		{
+			send(clients[i].socket,temp,sizeof(temp),0);
+		}
+	}		
+}
 
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(8080);
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
+//Broadcast a number to all 
+int broadcast_message(int num, int sender_id)
+{
+	for(int i=0; i<clients.size(); i++)
+	{
+		if(clients[i].id!=sender_id)
+		{
+			send(clients[i].socket,&num,sizeof(num),0);
+		}
+	}		
+}
 
-    if (bind(serverSocket, (sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
-        cerr << "Binding failed.\n";
-        return -1;
-    }
+void end_connection(int id)
+{
+	for(int i=0; i<clients.size(); i++)
+	{
+		if(clients[i].id==id)	
+		{
+			lock_guard<mutex> guard(clients_mtx);
+			clients[i].th.detach();
+			clients.erase(clients.begin()+i);
+			close(clients[i].socket);
+			break;
+		}
+	}				
+}
 
-    listen(serverSocket, 5);
-    cout << "Server started. Listening for connections...\n";
-    thread(createChatroom).detach();
+void handle_client(int client_socket, int id)
+{
+	char name[MAX_LEN],str[MAX_LEN];
+	recv(client_socket,name,sizeof(name),0);
+	set_name(id,name);	
 
-    while (true) {
-        int clientSocket = accept(serverSocket, (sockaddr *)&clientAddr, &addrLen);
-        if (clientSocket >= 0) {
-            thread(handleClient, clientSocket).detach();
-        }
-    }
-
-    close(serverSocket);
-    return 0;
+	//welcome message
+	string welcome_message=string(name)+string(" has joined");
+	broadcast_message("#NULL",id);	
+	broadcast_message(id,id);								
+	broadcast_message(welcome_message,id);	
+	shared_print(color(id)+welcome_message+def_col);
+	
+	while(1)
+	{
+		int bytes_received=recv(client_socket,str,sizeof(str),0);
+		if(bytes_received<=0)
+			return;
+		if(strcmp(str,"#exit")==0)
+		{
+			//leaving message
+			string message=string(name)+string(" has left");		
+			broadcast_message("#NULL",id);			
+			broadcast_message(id,id);						
+			broadcast_message(message,id);
+			shared_print(color(id)+message+def_col);
+			end_connection(id);							
+			return;
+		}
+		broadcast_message(string(name),id);					
+		broadcast_message(id,id);		
+		broadcast_message(string(str),id);
+		shared_print(color(id)+name+" : "+def_col+str);		
+	}	
 }
