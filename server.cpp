@@ -88,6 +88,7 @@ int main()
 	{
 		if(clients[i].th.joinable())
 			clients[i].th.join();
+		cout << "Thread Connected!!" << endl;
 	}
 
 	close(server_socket);
