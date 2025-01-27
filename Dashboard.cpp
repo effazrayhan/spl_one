@@ -105,7 +105,7 @@ bool storeUser(string user, string pass)
 	passFile << token << " " << hashdata(pass) << endl;
 	passFile.close();
 
-	cout << "Signup successful!" << endl;
+	cout << "Signup successful" << endl;
 	return true;
 }
 
