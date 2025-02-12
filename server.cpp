@@ -8,6 +8,7 @@
 #include <string.h>
 #include <algorithm>
 #define PORT 8080
+#define HOST "192.168.1.1"
 #define MAX_CLIENTS 10
 
 vector<int> clients;
@@ -46,7 +47,7 @@ int main() {
 
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+    inet_pton(AF_INET, HOST, &server_addr.sin_addr);
     server_addr.sin_port = htons(PORT);
 
     bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
