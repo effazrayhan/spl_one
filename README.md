@@ -9,4 +9,4 @@ Features
 4. Message Broadcasting
 5. Online availability checking
 6. Command-Based User Interface
-7. Persistent Chatrooms- Chatroom Data Stored in a database
+7. Persistent Chatrooms- Chatroom Data Stored in a file 
