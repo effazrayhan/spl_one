@@ -44,7 +44,7 @@ int main() {
     int server_socket, client_socket;
     sockaddr_in server_addr, client_addr;
     socklen_t client_size = sizeof(client_addr);
-
+    //Creating a socket
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
     server_addr.sin_family = AF_INET;
     inet_pton(AF_INET, HOST, &server_addr.sin_addr);
