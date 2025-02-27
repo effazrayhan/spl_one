@@ -8,7 +8,7 @@
 #include <string.h>
 #include <algorithm>
 #define PORT 8080
-#define HOST "192.168.1.1"
+#define HOST "10.100.200.172"
 #define MAX_CLIENTS 10
 
 vector<int> clients;
