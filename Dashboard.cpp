@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <signal.h>
 #include "sha.h"
+#include "endec.h"
 
 #define PORT 8080
 #define HOST "192.168.0.111"
@@ -173,9 +174,13 @@ void handle_room_chat() {
         recv(client_socket, buffer, 1024, 0);
         cout << buffer;
         
-        string password;
-        cin >> password;
-        send_chat_message(hashdata(password));
+        string pwd;
+        cin >> pwd;
+        string hashed_password = hashdata(pwd);  // Add newline
+        cout << pwd << endl;
+        cout << pwd.length() << endl;
+        cout << hashed_password << endl;
+        send_chat_message(hashed_password + "\n");
         
         // Get room token
         memset(buffer, 0, 1024);
@@ -187,41 +192,48 @@ void handle_room_chat() {
         memset(buffer, 0, 1024);
         recv(client_socket, buffer, 1024, 0);
         cout << buffer;
-        
+        cin.ignore();
         string token;
-        cin >> token;
-        send_chat_message(token);
-        
+        getline(cin, token);
+        send_chat_message(token + "\n");
+    
         memset(buffer, 0, 1024);
         recv(client_socket, buffer, 1024, 0);
         cout << buffer;
-        
-        string password;
-        cin >> password;
-        send_chat_message(hashdata(password));
-        
-        // Get join confirmation
+        //cin.ignore();
+        string pwd;
+        getline(cin, pwd);
+        cout << pwd << endl;
+        cout << pwd.length() << endl;
+        string hashed_password = hashdata(pwd); // << NO newline in hashdata input
+        cout << hashed_password << endl;
+        send_chat_message(hashed_password + "\n");
+    
         memset(buffer, 0, 1024);
         recv(client_socket, buffer, 1024, 0);
         cout << buffer;
     }
     
+    
     // Start chat loop
     string message;
-    cin.ignore(); // Clear any leftover newlines
     cout << "\nYou're in the chat room. Type 'quit' to exit.\n";
     cout << "Special commands: *old_chats, *active_peers\n\n";
-    
+    //cin.ignore(); // Clear any leftover newlines
     while (true) {
         getline(cin, message);
         if (message == "quit") {
-            send_chat_message("quit\n");
+            message = encrypt(message + "a");
+            message = stringToHex(message);
+            send_chat_message( message + " " );
             break;
         }
         if (!message.empty()) {
-            send_chat_message(message + "\n");
+            message = encrypt(message + "a");
+            message = stringToHex(message);
+            send_chat_message(message);
             // Add small delay to prevent message flooding
-            usleep(10000);
+            //usleep(10000);
         }
     }
 }
