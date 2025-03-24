@@ -10,10 +10,22 @@
 #include "sha.h"
 #include "endec.h"
 
-#define PORT 8080
-#define HOST "192.168.0.111"
-
 using namespace std;
+
+struct IPv4 {
+    unsigned char bytes[4];
+    IPv4() : bytes{0,0,0,0} {}
+    IPv4(unsigned char a, unsigned char b, unsigned char c, unsigned char d) : bytes{a,b,c,d} {}
+    string toString() const {
+        return to_string(bytes[0]) + "." + 
+               to_string(bytes[1]) + "." + 
+               to_string(bytes[2]) + "." + 
+               to_string(bytes[3]);
+    }
+};
+
+unsigned short PORT = 8080;
+IPv4 HOST;
 
 // Global variables
 int client_socket = -1;
@@ -62,7 +74,7 @@ bool connect_to_server() {
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
     
-    if (inet_pton(AF_INET, HOST, &server_addr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, HOST.toString().c_str(), &server_addr.sin_addr) <= 0) {
         cerr << "Invalid address\n";
         return false;
     }
@@ -298,6 +310,20 @@ void Connecto() {
 }
 
 int main() {
+    cout << "Enter HOST IP (format: a.b.c.d) & PORT : " << endl;
+    string ip;
+    cin >> ip;
+    cin >> PORT;
+    
+    // Parse IP address
+    unsigned int a, b, c, d;
+    if (sscanf(ip.c_str(), "%u.%u.%u.%u", &a, &b, &c, &d) == 4) {
+        HOST = IPv4(a, b, c, d);
+    } else {
+        cout << "Invalid IP format!" << endl;
+        return 1;
+    }
+    
     Connecto();
     return 0;
 }
