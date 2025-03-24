@@ -22,10 +22,24 @@
 #define HISTORY_CMD "*old_chats"
 #define PEERS_CMD "*active_peers"
 using namespace std;
-
-#define PORT 8080
-#define HOST "192.168.0.111"
+//#define PORT 8080
+//#define HOST "192.168.84.169"
 #define MAX_CLIENTS 10
+
+struct IPv4 {
+    unsigned char bytes[4];
+    IPv4() : bytes{0,0,0,0} {}
+    IPv4(unsigned char a, unsigned char b, unsigned char c, unsigned char d) : bytes{a,b,c,d} {}
+    string toString() const {
+        return to_string(bytes[0]) + "." + 
+               to_string(bytes[1]) + "." + 
+               to_string(bytes[2]) + "." + 
+               to_string(bytes[3]);
+    }
+};
+
+unsigned short PORT;
+IPv4 HOST;
 
 void log_message(const string& message) {
     cout << "[SERVER " << time(nullptr) << "]: " << message << endl;
@@ -488,6 +502,18 @@ void handle_client(int client_socket) {
 int main() {
     srand(time(0));
     
+    cout << "Enter HOST IP (format: a.b.c.d) & PORT : " << endl;
+    string ip;
+    cin >> ip >> PORT;
+    
+    // Parse IP address
+    unsigned int a, b, c, d;
+    if (sscanf(ip.c_str(), "%u.%u.%u.%u", &a, &b, &c, &d) != 4) {
+        cout << "Invalid IP format!" << endl;
+        return 1;
+    }
+    HOST = IPv4(a, b, c, d);
+    
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket == -1) {
         log_message("Failed to create socket");
@@ -499,7 +525,10 @@ int main() {
     
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+    if (inet_pton(AF_INET, HOST.toString().c_str(), &server_addr.sin_addr) <= 0) {
+        log_message("Invalid address");
+        return 1;
+    }
     server_addr.sin_port = htons(PORT);
     
     if (bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
